@@ -15,7 +15,6 @@
     "newtab": "index.html"
   },
   "permissions": [
-    "downloads",
     "favicon",
     "geolocation",
     "history",

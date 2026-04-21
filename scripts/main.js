@@ -1,6 +1,10 @@
 import { initializeSearch } from "./modules/search.js";
 import { initializeClock } from "./modules/time.js";
-import { initializeDailyBackground } from "./modules/background.js";
+import {
+  BACKGROUND_SOURCE_MODE_BING,
+  BACKGROUND_SOURCE_MODE_LOCAL,
+  initializeDailyBackground,
+} from "./modules/background.js";
 import { initializeSavedLinks } from "./modules/saved-links.js";
 import { initializeFrequentLinks } from "./modules/frequent-links.js";
 import { initializeHistory } from "./modules/history.js";
@@ -45,13 +49,19 @@ function applyStaticTranslations() {
   document.getElementById("settings-tabs")?.setAttribute("aria-label", t("settingsTabsAria"));
   document.getElementById("settings-tab-general").textContent = t("settingsSectionGeneral");
   document.getElementById("settings-tab-quick-links").textContent = t("settingsSectionQuickLinks");
+  document.getElementById("settings-tab-background").textContent = t("settingsSectionBackground");
   document.getElementById("settings-language-label").textContent = t("settingsLanguageLabel");
   document.getElementById("settings-weather-label").textContent = t("settingsWeatherLabel");
   document.getElementById("settings-reduced-motion-label").textContent = t("settingsReducedMotionLabel");
   document.getElementById("settings-quick-links-open-mode-label").textContent = t("settingsQuickLinksOpenModeLabel");
+  document.getElementById("settings-background-source-label").textContent = t("settingsBackgroundSourceLabel");
+  document.getElementById("settings-background-clear-label").textContent = t("settingsBackgroundClearLabel");
+  document.getElementById("background-drop-overlay-copy").textContent = t("settingsDropBackgroundHint");
   const quickLinksToggle = document.getElementById("quick-links-open-mode-toggle");
+  const backgroundSourceToggle = document.getElementById("background-source-toggle");
   const weatherToggle = document.getElementById("weather-toggle");
   const reducedMotionToggle = document.getElementById("reduced-motion-toggle");
+  const clearBackgroundButton = document.getElementById("background-clear-button");
   if (quickLinksToggle) {
     quickLinksToggle.setAttribute("aria-label", t("settingsQuickLinksOpenModeAria"));
     const currentButton = quickLinksToggle.querySelector('[data-quick-link-open-mode="current"]');
@@ -62,6 +72,20 @@ function applyStaticTranslations() {
     if (newTabButton) {
       newTabButton.textContent = t("settingsQuickLinksOpenModeNewTab");
     }
+  }
+  if (backgroundSourceToggle) {
+    backgroundSourceToggle.setAttribute("aria-label", t("settingsBackgroundSourceAria"));
+    const localButton = backgroundSourceToggle.querySelector('[data-background-source-mode="local"]');
+    const bingButton = backgroundSourceToggle.querySelector('[data-background-source-mode="bing"]');
+    if (localButton) {
+      localButton.textContent = t("settingsBackgroundSourceLocal");
+    }
+    if (bingButton) {
+      bingButton.textContent = t("settingsBackgroundSourceBing");
+    }
+  }
+  if (clearBackgroundButton) {
+    clearBackgroundButton.textContent = t("settingsBackgroundClearAction");
   }
   if (weatherToggle) {
     const onButton = weatherToggle.querySelector('[data-weather-enabled="true"]');
@@ -341,6 +365,67 @@ function initializeQuickLinksOpenModeToggle() {
   };
 }
 
+function initializeBackgroundSettings(backgroundControllerPromise) {
+  const sourceToggleElement = document.getElementById("background-source-toggle");
+  const clearButtonElement = document.getElementById("background-clear-button");
+
+  if (!sourceToggleElement || !clearButtonElement) {
+    return null;
+  }
+
+  const getController = async () => backgroundControllerPromise;
+
+  const syncUi = async () => {
+    const controller = await getController();
+
+    if (!controller) {
+      return;
+    }
+
+    const state = await controller.getState();
+
+    sourceToggleElement.querySelectorAll(".settings-language-option").forEach((buttonElement) => {
+      const mode = buttonElement.dataset.backgroundSourceMode;
+      const isDisabled = mode === BACKGROUND_SOURCE_MODE_LOCAL && !state.hasCustomImage;
+      const isActive = mode === state.mode;
+      buttonElement.classList.toggle("is-active", isActive);
+      buttonElement.setAttribute("aria-selected", String(isActive));
+      buttonElement.disabled = isDisabled;
+    });
+
+    clearButtonElement.disabled = !state.hasCustomImage;
+  };
+
+  sourceToggleElement.addEventListener("click", async (event) => {
+    const buttonElement = event.target instanceof Element
+      ? event.target.closest(".settings-language-option")
+      : null;
+
+    if (!buttonElement?.dataset.backgroundSourceMode || buttonElement.disabled) {
+      return;
+    }
+
+    const controller = await getController();
+    await controller?.setMode(buttonElement.dataset.backgroundSourceMode);
+    await syncUi();
+  });
+
+  clearButtonElement.addEventListener("click", async () => {
+    const controller = await getController();
+    await controller?.clearCustomImage();
+    await syncUi();
+  });
+
+  subscribeLanguageChange(() => {
+    applyStaticTranslations();
+    void syncUi();
+  });
+
+  return {
+    syncUi,
+  };
+}
+
 async function bootstrap() {
   await initializeI18n();
   applyReducedMotionState(await getReducedMotionEnabled());
@@ -384,10 +469,17 @@ async function bootstrap() {
     document.getElementById("suggestion-list"),
     document.querySelector(".clock-section")
   );
-  initializeDailyBackground({
+  let backgroundSettingsToggle = null;
+  const backgroundController = await initializeDailyBackground({
     baseLayer: document.getElementById("background-base"),
     activeLayer: document.getElementById("background-active"),
+    dropOverlayElement: document.getElementById("background-drop-overlay"),
+    onStateChange: () => {
+      void backgroundSettingsToggle?.syncUi();
+    },
   });
+  backgroundSettingsToggle = initializeBackgroundSettings(backgroundController);
+  await backgroundSettingsToggle?.syncUi();
   initializeSavedLinks({
     groupListElement: document.getElementById("group-list"),
   });

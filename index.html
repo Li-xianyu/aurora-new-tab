@@ -16,6 +16,22 @@
     </div>
 
     <div class="content-scrim" aria-hidden="true"></div>
+    <div id="background-drop-overlay" class="background-drop-overlay" aria-hidden="true" hidden>
+      <div class="background-drop-overlay-inner">
+        <div class="background-drop-overlay-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" focusable="false">
+            <circle cx="44" cy="20" r="6"></circle>
+            <path d="M12 46 24.5 33.5c1.7-1.7 4.4-1.7 6.1 0L38 41l4.6-4.6c1.7-1.7 4.4-1.7 6.1 0L56 43.7V50H12Z"></path>
+            <path d="M12 14h40a4 4 0 0 1 4 4v32H12a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" fill="none"></path>
+          </svg>
+        </div>
+        <div id="background-drop-overlay-copy" class="background-drop-overlay-copy">
+          支持拖放图片文件以设置页面背景
+          <br>
+          支持格式：PNG、JPG、JPEG、WEBP、GIF、BMP、AVIF、SVG
+        </div>
+      </div>
+    </div>
 
     <section id="settings-placeholder" class="settings-placeholder" aria-label="Settings">
       <div class="settings-placeholder-inner">
@@ -40,6 +56,15 @@
               aria-controls="settings-panel-quick-links"
               data-settings-tab="quick-links"
             >Quick Links</button>
+            <button
+              id="settings-tab-background"
+              class="settings-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-background"
+              data-settings-tab="background"
+            >Background</button>
           </div>
 
           <div
@@ -96,6 +121,32 @@
                 <button class="settings-language-option is-active" type="button" data-quick-link-open-mode="current" aria-selected="true">Current</button>
                 <button class="settings-language-option" type="button" data-quick-link-open-mode="new-tab" aria-selected="false">New Tab</button>
               </div>
+            </div>
+          </div>
+
+          <div
+            id="settings-panel-background"
+            class="settings-panel"
+            role="tabpanel"
+            aria-labelledby="settings-tab-background"
+            data-settings-panel="background"
+            hidden
+          >
+            <div class="settings-item">
+              <div class="settings-item-copy">
+                <span id="settings-background-source-label" class="settings-item-title">Background Source</span>
+              </div>
+              <div id="background-source-toggle" class="settings-language-toggle" role="tablist" aria-label="Background source">
+                <button class="settings-language-option" type="button" data-background-source-mode="local" aria-selected="false">Local</button>
+                <button class="settings-language-option is-active" type="button" data-background-source-mode="bing" aria-selected="true">Bing</button>
+              </div>
+            </div>
+
+            <div class="settings-item">
+              <div class="settings-item-copy">
+                <span id="settings-background-clear-label" class="settings-item-title">Clear Local Image Cache</span>
+              </div>
+              <button id="background-clear-button" class="settings-action-button" type="button">Clear</button>
             </div>
           </div>
         </div>

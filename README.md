@@ -59,7 +59,7 @@
 
 - 后台脚本会请求 Bing 每日图片接口。
 - 图片会转换为 `data URL` 后缓存到 `chrome.storage.local`。
-- 同时尝试下载到本地下载目录 `NewTabDailyBing/`。
+- 图片数据会保存在扩展本地缓存中，不会写入系统下载目录。
 - 当天内重复打开新标签页时，优先使用缓存，减少重复请求。
 
 ### 搜索
@@ -172,7 +172,6 @@
 - `chrome.storage`
 - `chrome.history`
 - `chrome.tabs`
-- `chrome.downloads`
 - `chrome.windows`
 - `chrome.action`
 - `chrome.commands`
@@ -222,8 +221,6 @@
   - 读取浏览历史
 - `tabs`
   - 读取当前活动标签页，并用于打开链接
-- `downloads`
-  - 下载每日 Bing 图片到本地
 - `favicon`
   - 获取站点图标
 - `geolocation`
@@ -271,7 +268,7 @@ chrome_newtab_extension/
 
 后台服务工作线程，负责：
 
-- 每日 Bing 图片请求、缓存、下载
+- 每日 Bing 图片请求与缓存
 - 保存快捷标签
 - 删除快捷标签 / 分组
 - 记录快捷标签使用次数
@@ -334,7 +331,6 @@ chrome_newtab_extension/
 - 动效减弱开关
 - 快捷链接打开方式
 - Bing 每日图缓存
-- Bing 图片下载状态
 - 保存的快捷标签数据
 - 保存弹窗临时状态
 

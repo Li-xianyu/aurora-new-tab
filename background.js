@@ -1,8 +1,6 @@
 const BING_ARCHIVE_API =
   "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN";
 const BING_BASE_URL = "https://www.bing.com";
-const DOWNLOAD_FOLDER = "NewTabDailyBing";
-const DOWNLOAD_STATE_KEY = "bingDailyDownloadState";
 const DAILY_IMAGE_CACHE_KEY = "bingDailyImageCache";
 const SAVED_LINKS_KEY = "savedPageLinks";
 const SAVE_DIALOG_STATE_KEY = "saveDialogState";
@@ -20,27 +18,6 @@ function normalizeImageUrl(urlPath) {
   }
 
   return new URL(urlPath, BING_BASE_URL).toString();
-}
-
-function getFileExtension(imageUrl) {
-  try {
-    const pathname = new URL(imageUrl).pathname;
-    const lastSegment = pathname.split("/").pop() || "";
-    const extension = lastSegment.includes(".")
-      ? lastSegment.split(".").pop()
-      : "jpg";
-
-    return extension || "jpg";
-  } catch {
-    return "jpg";
-  }
-}
-
-function buildDailyDownloadFilename(startDate, imageUrl) {
-  const extension = getFileExtension(imageUrl);
-  const safeDate = startDate || new Date().toISOString().slice(0, 10).replaceAll("-", "");
-
-  return `${DOWNLOAD_FOLDER}/${safeDate}.${extension}`;
 }
 
 function getTodayStamp() {
@@ -127,75 +104,13 @@ function parseBaiduSuggestionText(rawText) {
   return Array.isArray(payload?.s) ? payload.s : [];
 }
 
-async function getStoredDownloadState() {
-  const result = await chrome.storage.local.get(DOWNLOAD_STATE_KEY);
-  return result[DOWNLOAD_STATE_KEY] || null;
-}
-
 async function getStoredDailyImageCache() {
   const result = await chrome.storage.local.get(DAILY_IMAGE_CACHE_KEY);
   return result[DAILY_IMAGE_CACHE_KEY] || null;
 }
 
-async function setStoredDownloadState(state) {
-  await chrome.storage.local.set({ [DOWNLOAD_STATE_KEY]: state });
-}
-
 async function setStoredDailyImageCache(cache) {
   await chrome.storage.local.set({ [DAILY_IMAGE_CACHE_KEY]: cache });
-}
-
-async function tryRemovePreviousDownload(previousState) {
-  if (!previousState?.downloadId) {
-    return;
-  }
-
-  try {
-    await chrome.downloads.removeFile(previousState.downloadId);
-  } catch (error) {
-    console.warn("Failed to remove previous Bing image file.", error);
-  }
-}
-
-async function ensureDailyImageDownloaded(image) {
-  const imageUrl = normalizeImageUrl(image?.url);
-
-  if (!imageUrl) {
-    return null;
-  }
-
-  const nextState = {
-    startDate: image.startdate ?? "",
-    imageUrl,
-    filename: buildDailyDownloadFilename(image.startdate, imageUrl),
-    downloadId: null,
-  };
-
-  const currentState = await getStoredDownloadState();
-
-  if (
-    currentState?.startDate === nextState.startDate &&
-    currentState?.imageUrl === nextState.imageUrl &&
-    currentState?.downloadId
-  ) {
-    return currentState;
-  }
-
-  const downloadId = await chrome.downloads.download({
-    url: imageUrl,
-    filename: nextState.filename,
-    conflictAction: "overwrite",
-    saveAs: false,
-  });
-
-  nextState.downloadId = downloadId;
-  await setStoredDownloadState(nextState);
-
-  if (currentState && currentState.downloadId !== nextState.downloadId) {
-    await tryRemovePreviousDownload(currentState);
-  }
-
-  return nextState;
 }
 
 function createDailyImageCache(image) {
@@ -251,11 +166,8 @@ async function refreshDailyImageCache() {
   }
 
   const imageBuffer = await imageResponse.arrayBuffer();
-  const imageContentType =
-    imageResponse.headers.get("content-type") || `image/${getFileExtension(imageUrl)}`;
+  const imageContentType = imageResponse.headers.get("content-type") || "image/jpeg";
   const imageDataUrl = `data:${imageContentType};base64,${arrayBufferToBase64(imageBuffer)}`;
-
-  await ensureDailyImageDownloaded(image);
 
   image.imageDataUrl = imageDataUrl;
 
