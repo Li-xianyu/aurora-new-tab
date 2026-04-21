@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="./styles/main.css">
 </head>
-<body>
+<body class="is-page-booting">
   <div class="page-shell">
     <div class="background-layer" aria-hidden="true">
       <div id="background-base" class="background-image background-image-base"></div>
@@ -25,10 +25,9 @@
             <path d="M12 14h40a4 4 0 0 1 4 4v32H12a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" fill="none"></path>
           </svg>
         </div>
-        <div id="background-drop-overlay-copy" class="background-drop-overlay-copy">
-          支持拖放图片文件以设置页面背景
-          <br>
-          支持格式：PNG、JPG、JPEG、WEBP、GIF、BMP、AVIF、SVG
+        <div class="background-drop-overlay-copy">
+          <div id="background-drop-overlay-message">支持拖放图片文件以设置页面背景</div>
+          <div id="background-drop-overlay-formats" class="background-drop-overlay-formats">支持格式：PNG、JPG、JPEG、WEBP、GIF、BMP、AVIF、SVG</div>
         </div>
       </div>
     </div>

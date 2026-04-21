@@ -56,7 +56,8 @@ function applyStaticTranslations() {
   document.getElementById("settings-quick-links-open-mode-label").textContent = t("settingsQuickLinksOpenModeLabel");
   document.getElementById("settings-background-source-label").textContent = t("settingsBackgroundSourceLabel");
   document.getElementById("settings-background-clear-label").textContent = t("settingsBackgroundClearLabel");
-  document.getElementById("background-drop-overlay-copy").textContent = t("settingsDropBackgroundHint");
+  document.getElementById("background-drop-overlay-message").textContent = t("settingsDropBackgroundHint");
+  document.getElementById("background-drop-overlay-formats").textContent = "支持格式：PNG、JPG、JPEG、WEBP、GIF、BMP、AVIF、SVG";
   const quickLinksToggle = document.getElementById("quick-links-open-mode-toggle");
   const backgroundSourceToggle = document.getElementById("background-source-toggle");
   const weatherToggle = document.getElementById("weather-toggle");
@@ -493,6 +494,7 @@ async function bootstrap() {
     heroScreenElement: document.querySelector(".hero-screen"),
     linksScreenElement: document.querySelector(".links-screen"),
   });
+  document.body.classList.remove("is-page-booting");
 }
 
 bootstrap();

@@ -37,9 +37,27 @@ body {
   margin: 0;
   font-family: var(--page-font);
   color: var(--text-primary);
-  background: #ffffff;
+  background: #0a1220;
   user-select: none;
   -webkit-user-select: none;
+}
+
+body.is-page-booting .scroll-root,
+body.is-page-booting .weather-widget,
+body.is-page-booting .settings-placeholder,
+body.is-page-booting .history-screen,
+body.is-page-booting .hero-panel,
+body.is-page-booting .links-screen,
+body.is-page-booting .content-scrim {
+  opacity: 0 !important;
+  transition: none !important;
+}
+
+body.is-page-booting .clock-display,
+body.is-page-booting .search-section,
+body.is-page-booting .frequent-links-section,
+body.is-page-booting .search-input {
+  animation: none !important;
 }
 
 body.is-chip-dragging {
@@ -521,10 +539,17 @@ input {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.background-drop-overlay-formats {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .background-image {
   position: absolute;
   inset: 0;
-  background-color: #ffffff;
+  background-color: #0a1220;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -1430,6 +1455,10 @@ input {
 
   .background-drop-overlay-copy {
     font-size: 13px;
+  }
+
+  .background-drop-overlay-formats {
+    font-size: 11px;
   }
 
   .weather-summary-location {
