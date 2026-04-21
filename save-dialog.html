@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Save Page</title>
+  <link rel="stylesheet" href="./styles/save-dialog.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="background-layer" aria-hidden="true">
+      <div class="background-image background-image-base"></div>
+      <div class="background-overlay"></div>
+    </div>
+
+    <div class="content-scrim" aria-hidden="true"></div>
+
+    <main class="dialog-shell">
+      <section class="dialog-panel">
+        <header class="dialog-header">
+          <p class="dialog-eyebrow">Alt+S</p>
+          <h1 id="dialog-title" class="dialog-title">Save Page</h1>
+          <p id="dialog-subtitle" class="dialog-subtitle">Edit the title, link, and group before saving this shortcut.</p>
+        </header>
+
+        <form id="save-form" class="dialog-form">
+          <label class="field">
+            <span id="title-label" class="field-label">Title</span>
+            <input id="title-input" name="title" type="text" maxlength="160" autocomplete="off" required>
+          </label>
+
+          <label class="field">
+            <span id="url-label" class="field-label">Link</span>
+            <input id="url-input" name="url" type="url" autocomplete="off" required>
+          </label>
+
+          <section class="field group-field" aria-labelledby="group-label">
+            <div class="field-heading">
+              <span id="group-label" class="field-label">Group</span>
+            </div>
+            <div id="group-pills" class="group-pills" role="listbox" aria-labelledby="group-label"></div>
+          </section>
+
+          <section id="new-group-field" class="new-group-field" hidden>
+            <p id="new-group-tip" class="new-group-tip">Create a new group for this shortcut.</p>
+            <div class="new-group-row">
+              <input id="new-group-input" class="new-group-input" name="newGroup" type="text" maxlength="60" autocomplete="off">
+              <button id="new-group-cancel" class="tiny-action-button ghost-inline-button" type="button">Cancel</button>
+              <button id="new-group-confirm" class="tiny-action-button primary-inline-button" type="button">Add</button>
+            </div>
+          </section>
+
+          <div id="status-text" class="status-text" aria-live="polite"></div>
+        </form>
+      </section>
+    </main>
+
+    <div class="dialog-actions">
+      <button id="cancel-button" class="ghost-button" type="button">Cancel</button>
+      <button id="save-button" class="primary-button" type="submit" form="save-form">Save</button>
+    </div>
+  </div>
+
+  <script type="module" src="./scripts/save-dialog.js"></script>
+</body>
+</html>

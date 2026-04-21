@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "New Tab Control Panel",
+  "version": "0.1.0",
+  "description": "Custom new tab page",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Save Page",
+    "default_popup": "save-dialog.html"
+  },
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "permissions": [
+    "downloads",
+    "favicon",
+    "geolocation",
+    "history",
+    "storage",
+    "unlimitedStorage",
+    "tabs",
+    "scripting",
+    "windows"
+  ],
+  "commands": {
+    "save-current-page": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "Open save dialog for current page"
+    }
+  },
+  "host_permissions": [
+    "https://api.bigdatacloud.net/*",
+    "https://api.open-meteo.com/*",
+    "https://www.bing.com/*",
+    "https://suggestion.baidu.com/*",
+    "http://suggestion.baidu.com/*"
+  ]
+}
