@@ -1302,43 +1302,59 @@ input {
   transform: scale(1.03);
 }
 
-.bookmark-context-menu {
+.bookmark-context-menu,
+.page-context-menu {
   position: fixed;
-  z-index: 30;
-  min-width: 156px;
-  padding: 6px;
-  border-radius: 14px;
-  background: rgba(244, 247, 251, 0.74);
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  box-shadow: 0 20px 42px rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(16px);
+  z-index: 40;
+  min-width: 188px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(244, 247, 251, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 24px 54px rgba(7, 15, 28, 0.24);
+  backdrop-filter: blur(18px) saturate(1.05);
 }
 
-.bookmark-context-action {
+.page-context-menu[hidden] {
+  display: none !important;
+}
+
+.bookmark-context-menu[hidden] {
+  display: none !important;
+}
+
+.bookmark-context-action,
+.page-context-menu-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  padding: 9px 10px;
+  padding: 10px 12px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: transparent;
-  color: rgba(19, 34, 56, 0.92);
+  color: rgba(255, 255, 255, 0.94);
   cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.2;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
-.bookmark-context-action:hover {
-  background: rgba(255, 255, 255, 0.52);
+.bookmark-context-action:hover,
+.page-context-menu-item:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  transform: translateX(1px);
 }
 
 .bookmark-context-action.is-armed {
   background: rgba(200, 38, 38, 0.14);
-  color: #b42323;
+  color: #ffd2d2;
 }
 
 .bookmark-context-label {
-  font-size: 12px;
+  flex: 1 1 auto;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -1346,6 +1362,7 @@ input {
   display: inline-flex;
   width: 14px;
   height: 14px;
+  margin-left: 10px;
   opacity: 0;
   transition: opacity 160ms ease;
 }
@@ -1359,6 +1376,7 @@ input {
   height: 14px;
   fill: currentColor;
 }
+
 
 .page-shell.is-links-view .hero-panel {
   pointer-events: none;

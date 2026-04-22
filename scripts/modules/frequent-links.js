@@ -7,6 +7,13 @@ import {
   trackSavedLinkUsage,
 } from "./saved-links.js";
 
+const FREQUENT_LINKS_VISIBLE_STORAGE_KEY = "frequentLinksVisible";
+
+async function getFrequentLinksVisible() {
+  const result = await chrome.storage.local.get(FREQUENT_LINKS_VISIBLE_STORAGE_KEY);
+  return result[FREQUENT_LINKS_VISIBLE_STORAGE_KEY] !== false;
+}
+
 function renderFrequentLinks(containerElement, sectionElement, links) {
   containerElement.replaceChildren();
 
@@ -26,7 +33,19 @@ export function initializeFrequentLinks({ sectionElement, listElement }) {
   let currentLinks = [];
   let faviconObserver = null;
 
-  const render = () => {
+  const render = async () => {
+    const isVisible = await getFrequentLinksVisible();
+
+    if (!isVisible) {
+      sectionElement.hidden = true;
+      listElement.replaceChildren();
+      if (faviconObserver) {
+        faviconObserver.disconnect();
+      }
+      faviconObserver = null;
+      return;
+    }
+
     renderFrequentLinks(listElement, sectionElement, currentLinks);
 
     if (faviconObserver) {
@@ -39,7 +58,7 @@ export function initializeFrequentLinks({ sectionElement, listElement }) {
   const load = async () => {
     try {
       currentLinks = await requestSavedLinks();
-      render();
+      await render();
     } catch (error) {
       console.error(error);
     }
@@ -75,12 +94,12 @@ export function initializeFrequentLinks({ sectionElement, listElement }) {
       currentLinks = Array.isArray(changes.savedPageLinks.newValue)
         ? changes.savedPageLinks.newValue
         : [];
-      render();
+      void render();
       return;
     }
 
-    if (changes.quickLinkOpenMode) {
-      render();
+    if (changes.quickLinkOpenMode || changes[FREQUENT_LINKS_VISIBLE_STORAGE_KEY]) {
+      void render();
     }
   });
 
