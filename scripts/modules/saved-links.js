@@ -9,6 +9,48 @@ const RECENT_USAGE_BONUS = 0.75;
 const QUICK_LINK_OPEN_MODE_STORAGE_KEY = "quickLinkOpenMode";
 const QUICK_LINK_OPEN_MODE_CURRENT = "current";
 const QUICK_LINK_OPEN_MODE_NEW_TAB = "new-tab";
+const CONTEXT_MENU_OPEN_CLASS = "is-opening";
+const LINK_CONTEXT_MENU_ACTIONS = [
+  { action: "new-tab", labelKey: "contextMenuOpenNewTab" },
+  { action: "new-window", labelKey: "contextMenuOpenNewWindow" },
+  { action: "incognito", labelKey: "contextMenuOpenIncognito" },
+  { action: "copy-link", labelKey: "contextMenuCopyLink" },
+  { action: "save", labelKey: "contextMenuSaveLinkAs" },
+];
+const LINK_CONTEXT_MENU_ICONS = {
+  delete: '<svg viewBox="0 0 16 16" focusable="false"><path d="M6.5 2.5h3a1.5 1.5 0 0 1 1.41 1H13a.75.75 0 0 1 0 1.5h-.36l-.58 7.07A2.25 2.25 0 0 1 9.82 14H6.18a2.25 2.25 0 0 1-2.24-1.93L3.36 5H3a.75.75 0 0 1 0-1.5h2.09a1.5 1.5 0 0 1 1.41-1Zm3 1.5h-3v-.01h3V4Zm-4.63 1 .56 6.88c.03.35.35.62.75.62h3.64c.4 0 .72-.27.75-.62L11.13 5H4.87Zm1.88 1.5c.41 0 .75.34.75.75v3a.75.75 0 0 1-1.5 0v-3c0-.41.34-.75.75-.75Zm2.5 0c.41 0 .75.34.75.75v3a.75.75 0 0 1-1.5 0v-3c0-.41.34-.75.75-.75Z"></path></svg>',
+  "new-tab": '<svg viewBox="0 0 16 16" focusable="false"><path d="M3.75 3.5a.25.25 0 0 0-.25.25v8.5c0 .14.11.25.25.25h8.5c.14 0 .25-.11.25-.25V9.5a.75.75 0 0 1 1.5 0v2.75A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.78 2.78 2 3.75 2H6.5a.75.75 0 0 1 0 1.5H3.75ZM8.5 2.75c0-.41.34-.75.75-.75h4a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0V4.56L8.78 8.28a.75.75 0 0 1-1.06-1.06l3.72-3.72H9.25a.75.75 0 0 1-.75-.75Z"></path></svg>',
+  "new-window": '<svg viewBox="0 0 16 16" focusable="false"><path d="M3.75 3A1.75 1.75 0 0 0 2 4.75v6.5C2 12.22 2.78 13 3.75 13h8.5A1.75 1.75 0 0 0 14 11.25v-6.5A1.75 1.75 0 0 0 12.25 3h-8.5Zm0 1.5h8.5c.14 0 .25.11.25.25V6h-9V4.75c0-.14.11-.25.25-.25Zm-.25 3h9v3.75c0 .14-.11.25-.25.25h-8.5a.25.25 0 0 1-.25-.25V7.5Z"></path></svg>',
+  incognito: '<svg viewBox="0 0 16 16" focusable="false"><path d="M3.25 6.5 4.2 3.67A1 1 0 0 1 5.15 3h5.7a1 1 0 0 1 .95.67l.95 2.83H14a.75.75 0 0 1 0 1.5h-.47A2.75 2.75 0 0 1 8 8a2.75 2.75 0 0 1-5.53 0H2a.75.75 0 0 1 0-1.5h1.25Zm1.62 0h6.26L10.4 4.5H5.6l-.73 2ZM5.25 8a1.25 1.25 0 1 0 0 .01V8Zm5.5 0a1.25 1.25 0 1 0 0 .01V8Z"></path></svg>',
+  "copy-link": '<svg viewBox="0 0 16 16" focusable="false"><path d="M6.25 4.25a.75.75 0 0 1 0 1.5H5.5a2.5 2.5 0 0 0 0 5h.75a.75.75 0 0 1 0 1.5H5.5a4 4 0 0 1 0-8h.75Zm3.5 0h.75a4 4 0 0 1 0 8h-.75a.75.75 0 0 1 0-1.5h.75a2.5 2.5 0 0 0 0-5h-.75a.75.75 0 0 1 0-1.5ZM5.75 8c0-.41.34-.75.75-.75h3a.75.75 0 0 1 0 1.5h-3A.75.75 0 0 1 5.75 8Z"></path></svg>',
+  save: '<svg viewBox="0 0 16 16" focusable="false"><path d="M3.75 2h7.19c.46 0 .91.18 1.24.51l1.31 1.31c.33.33.51.78.51 1.24v7.19A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.78 2.78 2 3.75 2Zm0 1.5a.25.25 0 0 0-.25.25v8.5c0 .14.11.25.25.25H4.5V9.75C4.5 8.78 5.28 8 6.25 8h3.5c.97 0 1.75.78 1.75 1.75v2.75h.75c.14 0 .25-.11.25-.25V5.06a.25.25 0 0 0-.07-.18l-1.31-1.31a.25.25 0 0 0-.18-.07H10.5v1.75C10.5 6.22 9.72 7 8.75 7h-3.5A1.75 1.75 0 0 1 3.5 5.25v-1.5c0-.14.11-.25.25-.25ZM6 9.5v3h4v-2.75a.25.25 0 0 0-.25-.25H6Zm-1-6v1.75c0 .14.11.25.25.25h3.5c.14 0 .25-.11.25-.25V3.5H5Z"></path></svg>',
+};
+
+function playContextMenuOpening(menuElement) {
+  const menuItems = [...menuElement.querySelectorAll(".bookmark-context-action")];
+
+  menuElement.style.setProperty("--context-menu-count", String(menuItems.length));
+  menuItems.forEach((itemElement, index) => {
+    itemElement.style.setProperty("--context-menu-item-index", String(index));
+  });
+
+  menuElement.classList.remove(CONTEXT_MENU_OPEN_CLASS);
+  void menuElement.offsetWidth;
+  menuElement.classList.add(CONTEXT_MENU_OPEN_CLASS);
+}
+
+function createLinkContextAction({ action, label, disabled = false }) {
+  const buttonElement = document.createElement("button");
+  buttonElement.type = "button";
+  buttonElement.className = "bookmark-context-action";
+  buttonElement.dataset.action = action;
+  buttonElement.disabled = disabled;
+  buttonElement.innerHTML = `
+    <span class="context-menu-leading-icon" aria-hidden="true">${LINK_CONTEXT_MENU_ICONS[action] || ""}</span>
+    <span class="bookmark-context-label">${label}</span>
+  `;
+  return buttonElement;
+}
 
 function buildExtensionFaviconUrl(url, size = 32) {
   const faviconBaseUrl = chrome.runtime.getURL("/_favicon/");
@@ -277,6 +319,7 @@ export function initializeSavedLinks({ groupListElement }) {
   let currentLinks = [];
   let menuState = {
     activeLinkId: "",
+    activeLinkUrl: "",
     isArmed: false,
   };
   let suppressNextClick = false;
@@ -291,7 +334,9 @@ export function initializeSavedLinks({ groupListElement }) {
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "bookmark-context-action";
+  deleteButton.dataset.action = "delete";
   deleteButton.innerHTML = `
+    <span class="context-menu-leading-icon" aria-hidden="true">${LINK_CONTEXT_MENU_ICONS.delete}</span>
     <span class="bookmark-context-label">${t("bookmarkDelete")}</span>
     <span class="bookmark-context-icon" aria-hidden="true">
       <svg viewBox="0 0 16 16" focusable="false">
@@ -300,15 +345,25 @@ export function initializeSavedLinks({ groupListElement }) {
     </span>
   `;
 
-  menuElement.appendChild(deleteButton);
+  const menuSeparatorElement = document.createElement("div");
+  menuSeparatorElement.className = "context-menu-separator";
+  const linkActionButtons = LINK_CONTEXT_MENU_ACTIONS.map((item) => createLinkContextAction({
+    action: item.action,
+    label: t(item.labelKey),
+    disabled: Boolean(item.disabled),
+  }));
+
+  menuElement.append(deleteButton, menuSeparatorElement, ...linkActionButtons);
   document.body.appendChild(menuElement);
 
   const hideContextMenu = () => {
     menuState = {
       activeLinkId: "",
+      activeLinkUrl: "",
       isArmed: false,
     };
     menuElement.hidden = true;
+    menuElement.classList.remove(CONTEXT_MENU_OPEN_CLASS);
     deleteButton.classList.remove("is-armed");
   };
 
@@ -440,17 +495,18 @@ export function initializeSavedLinks({ groupListElement }) {
     syncPlaceholderPosition(clientX, clientY);
   };
 
-  const showContextMenu = (event, linkId) => {
+  const showContextMenu = (event, linkId, linkUrl) => {
     menuState = {
       activeLinkId: linkId,
+      activeLinkUrl: linkUrl,
       isArmed: false,
     };
 
     deleteButton.classList.remove("is-armed");
     menuElement.hidden = false;
 
-    const menuWidth = 156;
-    const menuHeight = 52;
+    const menuWidth = 188;
+    const menuHeight = menuElement.offsetHeight || 324;
     const maxLeft = Math.max(12, window.innerWidth - menuWidth - 12);
     const maxTop = Math.max(12, window.innerHeight - menuHeight - 12);
     const left = Math.min(event.clientX, maxLeft);
@@ -458,11 +514,21 @@ export function initializeSavedLinks({ groupListElement }) {
 
     menuElement.style.left = `${left}px`;
     menuElement.style.top = `${top}px`;
+    playContextMenuOpening(menuElement);
   };
 
   const render = () => {
     renderGroups(groupListElement, currentLinks);
     deleteButton.querySelector(".bookmark-context-label").textContent = t("bookmarkDelete");
+    linkActionButtons.forEach((buttonElement) => {
+      const item = LINK_CONTEXT_MENU_ACTIONS.find((entry) => entry.action === buttonElement.dataset.action);
+
+      if (!item) {
+        return;
+      }
+
+      buttonElement.querySelector(".bookmark-context-label").textContent = t(item.labelKey);
+    });
 
     if (faviconObserver) {
       faviconObserver.disconnect();
@@ -496,7 +562,7 @@ export function initializeSavedLinks({ groupListElement }) {
     }
 
     event.preventDefault();
-    showContextMenu(event, chipElement.dataset.linkId || "");
+    showContextMenu(event, chipElement.dataset.linkId || "", chipElement.href);
   });
 
   groupListElement.addEventListener("click", (event) => {
@@ -633,6 +699,35 @@ export function initializeSavedLinks({ groupListElement }) {
     }
 
     hideContextMenu();
+  });
+
+  linkActionButtons.forEach((buttonElement) => {
+    buttonElement.addEventListener("click", async () => {
+      const action = buttonElement.dataset.action;
+      const url = menuState.activeLinkUrl;
+
+      if (!url || buttonElement.disabled) {
+        return;
+      }
+
+      hideContextMenu();
+
+      try {
+        if (action === "new-tab") {
+          await chrome.tabs.create({ url });
+        } else if (action === "new-window") {
+          await chrome.windows.create({ url });
+        } else if (action === "incognito") {
+          await chrome.windows.create({ url, incognito: true });
+        } else if (action === "copy-link") {
+          await navigator.clipboard.writeText(url);
+        } else if (action === "save") {
+          await chrome.runtime.sendMessage({ type: "SAVE_LINK_AS", url });
+        }
+      } catch (error) {
+        console.error("Failed to run bookmark context menu action.", error);
+      }
+    });
   });
 
   document.addEventListener("pointerdown", (event) => {

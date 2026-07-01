@@ -64,6 +64,15 @@
               aria-controls="settings-panel-background"
               data-settings-tab="background"
             >Background</button>
+            <button
+              id="settings-tab-extensions"
+              class="settings-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-extensions"
+              data-settings-tab="extensions"
+            >Extensions</button>
           </div>
 
           <div
@@ -85,16 +94,6 @@
 
             <div class="settings-item">
               <div class="settings-item-copy">
-                <span id="settings-weather-label" class="settings-item-title">Weather</span>
-              </div>
-              <div id="weather-toggle" class="settings-language-toggle" role="tablist" aria-label="Weather widget">
-                <button class="settings-language-option is-active" type="button" data-weather-enabled="true" aria-selected="true">On</button>
-                <button class="settings-language-option" type="button" data-weather-enabled="false" aria-selected="false">Off</button>
-              </div>
-            </div>
-
-            <div class="settings-item">
-              <div class="settings-item-copy">
                 <span id="settings-reduced-motion-label" class="settings-item-title">Reduce Motion</span>
               </div>
               <div id="reduced-motion-toggle" class="settings-language-toggle" role="tablist" aria-label="Reduced motion">
@@ -102,6 +101,17 @@
                 <button class="settings-language-option is-active" type="button" data-reduced-motion="false" aria-selected="true">Off</button>
               </div>
             </div>
+
+            <div class="settings-item">
+              <div class="settings-item-copy">
+                <span id="settings-screen-loop-label" class="settings-item-title">Loop Screens</span>
+              </div>
+              <div id="screen-loop-toggle" class="settings-language-toggle" role="tablist" aria-label="Loop screens">
+                <button class="settings-language-option is-active" type="button" data-screen-loop="true" aria-selected="true">On</button>
+                <button class="settings-language-option" type="button" data-screen-loop="false" aria-selected="false">Off</button>
+              </div>
+            </div>
+
           </div>
 
           <div
@@ -157,6 +167,26 @@
               </div>
               <button id="background-clear-button" class="settings-action-button" type="button">Clear</button>
             </div>
+          </div>
+
+          <div
+            id="settings-panel-extensions"
+            class="settings-panel"
+            role="tabpanel"
+            aria-labelledby="settings-tab-extensions"
+            data-settings-panel="extensions"
+            hidden
+          >
+            <div class="settings-item">
+              <div class="settings-item-copy">
+                <span id="settings-weather-label" class="settings-item-title">Weather</span>
+              </div>
+              <div id="weather-toggle" class="settings-language-toggle" role="tablist" aria-label="Weather widget">
+                <button class="settings-language-option is-active" type="button" data-weather-enabled="true" aria-selected="true">On</button>
+                <button class="settings-language-option" type="button" data-weather-enabled="false" aria-selected="false">Off</button>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

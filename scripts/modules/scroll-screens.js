@@ -15,9 +15,16 @@ const POINTER_DIRECTION_DOMINANCE_RATIO = 1.35;
 const POINTER_FLICK_VELOCITY_THRESHOLD = 0.42;
 const SCROLL_SETTLE_DELAY_MS = 110;
 const WHEEL_ACCUM_RESET_MS = 180;
+const LOOP_TELEPORT_EPSILON = 2;
+const VISUAL_STATE_SNAP_EPSILON = 36;
+const ANIMATION_WATCHDOG_MS = TRANSITION_DURATION_MS + 220;
 
 function isReducedMotionEnabled() {
   return document.body.classList.contains("is-reduced-motion");
+}
+
+function isScreenLoopEnabled() {
+  return document.body.classList.contains("is-screen-loop-enabled");
 }
 
 function clamp(value, min, max) {
@@ -58,6 +65,11 @@ function getPageShell() {
   return document.querySelector(".page-shell");
 }
 
+function getSettingsProgressValue() {
+  const value = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--settings-progress"));
+  return Number.isFinite(value) ? clamp(value, 0, 1) : 0;
+}
+
 function isSettingsPreviewActive() {
   return getPageShell()?.classList.contains("is-settings-preview") || false;
 }
@@ -66,13 +78,79 @@ function setSettingsDragState(isDragging) {
   getPageShell()?.classList.toggle("is-settings-dragging", isDragging);
 }
 
+function setScreenDragState(isDragging) {
+  document.body.classList.toggle("is-screen-dragging", isDragging);
+}
+
+function normalizeSettingsPreviewState() {
+  const pageShell = getPageShell();
+
+  if (!pageShell || pageShell.classList.contains("is-settings-dragging")) {
+    return;
+  }
+
+  if (getSettingsProgressValue() > 0.08) {
+    return;
+  }
+
+  document.documentElement.style.setProperty("--settings-progress", "0");
+  pageShell.classList.remove("is-settings-preview");
+}
+
+function stripCloneIds(element) {
+  element.removeAttribute("id");
+  element.querySelectorAll("[id]").forEach((childElement) => {
+    childElement.removeAttribute("id");
+  });
+}
+
+function createLoopClone(screenElement, position) {
+  const cloneElement = screenElement.cloneNode(true);
+  stripCloneIds(cloneElement);
+  cloneElement.classList.add("screen-loop-clone", `is-${position}-loop-clone`);
+  cloneElement.setAttribute("aria-hidden", "true");
+  cloneElement.inert = true;
+  return cloneElement;
+}
+
+function syncLoopCloneContent(sourceElement, cloneElement) {
+  cloneElement.innerHTML = sourceElement.innerHTML;
+  stripCloneIds(cloneElement);
+}
+
+function observeLoopCloneSource(sourceElement, cloneElement) {
+  let syncTimerId = 0;
+  const observer = new MutationObserver(() => {
+    if (syncTimerId) {
+      window.clearTimeout(syncTimerId);
+    }
+
+    syncTimerId = window.setTimeout(() => {
+      syncTimerId = 0;
+      syncLoopCloneContent(sourceElement, cloneElement);
+    }, 60);
+  });
+
+  observer.observe(sourceElement, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+  });
+
+  return observer;
+}
+
 function resetGesturePreview(scrollRootElement, pointerGesture, refresh) {
   if (!pointerGesture) {
     return;
   }
 
   if (isReducedMotionEnabled()) {
+    document.documentElement.style.setProperty("--settings-progress", "0");
+    getPageShell()?.classList.remove("is-settings-preview");
     setSettingsDragState(false);
+    setScreenDragState(false);
+    refresh();
     return;
   }
 
@@ -80,6 +158,7 @@ function resetGesturePreview(scrollRootElement, pointerGesture, refresh) {
   document.documentElement.style.setProperty("--settings-progress", "0");
   getPageShell()?.classList.remove("is-settings-preview");
   setSettingsDragState(false);
+  setScreenDragState(false);
   refresh();
 }
 
@@ -87,19 +166,67 @@ function syncScrollVisualState(scrollRootElement, historyScreenElement, heroScre
   const heroTop = heroScreenElement?.offsetTop || 0;
   const linksTop = linksScreenElement?.offsetTop || window.innerHeight;
   const historyTop = historyScreenElement?.offsetTop || 0;
-  const scrollTop = scrollRootElement.scrollTop;
-  const forwardProgress = clamp((scrollTop - heroTop) / Math.max(linksTop - heroTop, 1), 0, 1);
-  const backwardProgress = clamp((heroTop - scrollTop) / Math.max(heroTop - historyTop, 1), 0, 1);
-  const isLinksView = scrollTop > heroTop + ((linksTop - heroTop) * LINKS_VIEW_THRESHOLD_RATIO);
-  const isHistoryView = scrollTop < heroTop - ((heroTop - historyTop) * HISTORY_VIEW_THRESHOLD_RATIO);
+  const rawScrollTop = scrollRootElement.scrollTop;
+  const scrollTop = (() => {
+    if (!isScreenLoopEnabled()) {
+      return rawScrollTop;
+    }
+
+    if (rawScrollTop < historyTop - LOOP_TELEPORT_EPSILON) {
+      return linksTop;
+    }
+
+    if (rawScrollTop > linksTop + LOOP_TELEPORT_EPSILON) {
+      return historyTop;
+    }
+
+    return rawScrollTop;
+  })();
+  const nearHistoryTop = Math.abs(scrollTop - historyTop) <= VISUAL_STATE_SNAP_EPSILON;
+  const nearHeroTop = Math.abs(scrollTop - heroTop) <= VISUAL_STATE_SNAP_EPSILON;
+  const nearLinksTop = Math.abs(scrollTop - linksTop) <= VISUAL_STATE_SNAP_EPSILON;
+  const snappedScrollTop = nearHistoryTop
+    ? historyTop
+    : nearHeroTop
+      ? heroTop
+      : nearLinksTop
+        ? linksTop
+        : scrollTop;
+  const forwardProgress = clamp((snappedScrollTop - heroTop) / Math.max(linksTop - heroTop, 1), 0, 1);
+  const backwardProgress = clamp((heroTop - snappedScrollTop) / Math.max(heroTop - historyTop, 1), 0, 1);
+  const isLinksView = nearLinksTop
+    ? true
+    : nearHeroTop || nearHistoryTop
+      ? false
+      : snappedScrollTop > heroTop + ((linksTop - heroTop) * LINKS_VIEW_THRESHOLD_RATIO);
+  const isHistoryView = nearHistoryTop
+    ? true
+    : nearHeroTop || nearLinksTop
+      ? false
+      : snappedScrollTop < heroTop - ((heroTop - historyTop) * HISTORY_VIEW_THRESHOLD_RATIO);
   const pageShell = getPageShell();
   const scrimProgress = Math.max(forwardProgress, backwardProgress);
+  const settledScreen = nearHistoryTop
+    ? "history"
+    : nearHeroTop
+      ? "hero"
+      : nearLinksTop
+        ? "links"
+        : "";
 
   document.documentElement.style.setProperty("--screen-progress", forwardProgress.toFixed(4));
   document.documentElement.style.setProperty("--history-progress", backwardProgress.toFixed(4));
   document.documentElement.style.setProperty("--view-scrim-progress", scrimProgress.toFixed(4));
   pageShell?.classList.toggle("is-links-view", isLinksView);
   pageShell?.classList.toggle("is-history-view", isHistoryView);
+
+  if (pageShell) {
+    if (settledScreen) {
+      pageShell.dataset.activeScreen = settledScreen;
+    } else {
+      delete pageShell.dataset.activeScreen;
+    }
+  }
 }
 
 function animateScrollTo(scrollRootElement, targetTop, onFrame) {
@@ -114,7 +241,36 @@ function animateScrollTo(scrollRootElement, targetTop, onFrame) {
   const startTime = performance.now();
 
   return new Promise((resolve) => {
+    let frameId = 0;
+    let isResolved = false;
+    let watchdogTimerId = 0;
+
+    const finish = () => {
+      if (isResolved) {
+        return;
+      }
+
+      isResolved = true;
+
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      if (watchdogTimerId) {
+        window.clearTimeout(watchdogTimerId);
+        watchdogTimerId = 0;
+      }
+
+      scrollRootElement.scrollTop = targetTop;
+      onFrame();
+      resolve();
+    };
+
     const tick = (now) => {
+      if (isResolved) {
+        return;
+      }
+
       const elapsed = now - startTime;
       const progress = clamp(elapsed / TRANSITION_DURATION_MS, 0, 1);
       const easedProgress = easeOutCubic(progress);
@@ -123,14 +279,15 @@ function animateScrollTo(scrollRootElement, targetTop, onFrame) {
       onFrame();
 
       if (progress < 1) {
-        window.requestAnimationFrame(tick);
+        frameId = window.requestAnimationFrame(tick);
         return;
       }
 
-      resolve();
+      finish();
     };
 
-    window.requestAnimationFrame(tick);
+    watchdogTimerId = window.setTimeout(finish, ANIMATION_WATCHDOG_MS);
+    frameId = window.requestAnimationFrame(tick);
   });
 }
 
@@ -144,14 +301,24 @@ export function initializeScrollScreens({
     return;
   }
 
+  const topLoopCloneElement = createLoopClone(linksScreenElement, "top");
+  const bottomLoopCloneElement = createLoopClone(historyScreenElement, "bottom");
+  scrollRootElement.insertBefore(topLoopCloneElement, historyScreenElement);
+  scrollRootElement.appendChild(bottomLoopCloneElement);
+  observeLoopCloneSource(linksScreenElement, topLoopCloneElement);
+  observeLoopCloneSource(historyScreenElement, bottomLoopCloneElement);
+
   let isAnimating = false;
   let pointerGesture = null;
   let scrollSettleTimerId = 0;
   let wheelAccumulatedDelta = 0;
   let wheelAccumulatedDirection = 0;
   let wheelAccumulatedTimerId = 0;
+  let pendingLayoutRepair = false;
+  let layoutRepairFrameId = 0;
 
   const refresh = () => {
+    normalizeSettingsPreviewState();
     syncScrollVisualState(
       scrollRootElement,
       historyScreenElement,
@@ -160,7 +327,59 @@ export function initializeScrollScreens({
     );
   };
 
-  const animateTo = async (targetTop) => {
+  const getScreenTops = () => ({
+    topLoop: topLoopCloneElement.offsetTop,
+    history: historyScreenElement.offsetTop,
+    hero: heroScreenElement.offsetTop,
+    links: linksScreenElement.offsetTop,
+    bottomLoop: bottomLoopCloneElement.offsetTop,
+  });
+
+  const teleportTo = (targetTop) => {
+    scrollRootElement.scrollTop = targetTop;
+    refresh();
+  };
+
+  const normalizeLoopPosition = () => {
+    if (!isScreenLoopEnabled()) {
+      return;
+    }
+
+    const screenTops = getScreenTops();
+    const scrollTop = scrollRootElement.scrollTop;
+
+    if (Math.abs(scrollTop - screenTops.topLoop) <= LOOP_TELEPORT_EPSILON) {
+      teleportTo(screenTops.links);
+      return;
+    }
+
+    if (Math.abs(scrollTop - screenTops.bottomLoop) <= LOOP_TELEPORT_EPSILON) {
+      teleportTo(screenTops.history);
+    }
+  };
+
+  const requestLayoutRepair = () => {
+    if (layoutRepairFrameId) {
+      return;
+    }
+
+    layoutRepairFrameId = window.requestAnimationFrame(() => {
+      layoutRepairFrameId = 0;
+
+      if (isAnimating || pointerGesture || isSettingsPreviewActive()) {
+        pendingLayoutRepair = true;
+        refresh();
+        return;
+      }
+
+      pendingLayoutRepair = false;
+      refresh();
+      normalizeLoopPosition();
+      scheduleScrollSettle();
+    });
+  };
+
+  const animateTo = async (targetTop, afterAnimate) => {
     if (isAnimating) {
       return;
     }
@@ -170,16 +389,28 @@ export function initializeScrollScreens({
 
     try {
       await animateScrollTo(scrollRootElement, targetTop, refresh);
+      afterAnimate?.();
     } finally {
       isAnimating = false;
       getPageShell()?.classList.remove("is-screen-animating");
+      normalizeLoopPosition();
       refresh();
+
+      if (pendingLayoutRepair) {
+        requestLayoutRepair();
+      }
     }
   };
 
   const jumpToHistory = () => animateTo(historyScreenElement.offsetTop);
   const jumpToHero = () => animateTo(heroScreenElement.offsetTop);
   const jumpToLinks = () => animateTo(linksScreenElement.offsetTop);
+  const jumpToLoopStart = () => animateTo(bottomLoopCloneElement.offsetTop, () => {
+    teleportTo(historyScreenElement.offsetTop);
+  });
+  const jumpToLoopEnd = () => animateTo(topLoopCloneElement.offsetTop, () => {
+    teleportTo(linksScreenElement.offsetTop);
+  });
 
   const resetWheelAccumulation = () => {
     wheelAccumulatedDelta = 0;
@@ -241,10 +472,35 @@ export function initializeScrollScreens({
     const historyTop = historyScreenElement.offsetTop;
     const heroTop = heroScreenElement.offsetTop;
     const linksTop = linksScreenElement.offsetTop;
+    const screenTops = getScreenTops();
     const currentTop = scrollRootElement.scrollTop;
-    const nearestTop = getNearestScreenTop(currentTop, [historyTop, heroTop, linksTop]);
+    const snapTops = isScreenLoopEnabled()
+      ? [screenTops.topLoop, historyTop, heroTop, linksTop, screenTops.bottomLoop]
+      : [historyTop, heroTop, linksTop];
+    const nearestTop = getNearestScreenTop(currentTop, snapTops);
 
     if (Math.abs(currentTop - nearestTop) < 2) {
+      if (isScreenLoopEnabled() && nearestTop === screenTops.topLoop) {
+        teleportTo(screenTops.links);
+        return;
+      }
+
+      if (isScreenLoopEnabled() && nearestTop === screenTops.bottomLoop) {
+        teleportTo(screenTops.history);
+        return;
+      }
+
+      teleportTo(nearestTop);
+      return;
+    }
+
+    if (isScreenLoopEnabled() && nearestTop === screenTops.topLoop) {
+      jumpToLoopEnd();
+      return;
+    }
+
+    if (isScreenLoopEnabled() && nearestTop === screenTops.bottomLoop) {
+      jumpToLoopStart();
       return;
     }
 
@@ -262,10 +518,40 @@ export function initializeScrollScreens({
     }, SCROLL_SETTLE_DELAY_MS);
   };
 
+  const snapPointerReleaseTo = (targetTop) => {
+    if (scrollSettleTimerId) {
+      window.clearTimeout(scrollSettleTimerId);
+      scrollSettleTimerId = 0;
+    }
+
+    scrollRootElement.scrollTop = targetTop;
+    refresh();
+
+    window.requestAnimationFrame(() => {
+      setScreenDragState(false);
+      normalizeLoopPosition();
+      refresh();
+      scheduleScrollSettle();
+
+      if (pendingLayoutRepair) {
+        requestLayoutRepair();
+      }
+    });
+  };
+
   const alignToHero = () => {
     scrollRootElement.scrollTop = heroScreenElement.offsetTop;
     refresh();
   };
+
+  if (typeof ResizeObserver === "function") {
+    const loopCloneResizeObserver = new ResizeObserver(() => {
+      requestLayoutRepair();
+    });
+
+    loopCloneResizeObserver.observe(topLoopCloneElement);
+    loopCloneResizeObserver.observe(bottomLoopCloneElement);
+  }
 
   scrollRootElement.addEventListener("wheel", (event) => {
     const wheelTriggerDelta = getWheelTriggerDelta();
@@ -277,6 +563,8 @@ export function initializeScrollScreens({
     }
 
     if (isAnimating) {
+      event.preventDefault();
+      resetWheelAccumulation();
       return;
     }
 
@@ -318,6 +606,20 @@ export function initializeScrollScreens({
       event.preventDefault();
       resetWheelAccumulation();
       jumpToHero();
+      return;
+    }
+
+    if (isScreenLoopEnabled() && event.deltaY > 0 && nearLinksTop) {
+      event.preventDefault();
+      resetWheelAccumulation();
+      jumpToLoopStart();
+      return;
+    }
+
+    if (isScreenLoopEnabled() && event.deltaY < 0 && nearHistoryTop && !isWithinHistoryList(event.target)) {
+      event.preventDefault();
+      resetWheelAccumulation();
+      jumpToLoopEnd();
       return;
     }
 
@@ -363,16 +665,51 @@ export function initializeScrollScreens({
       return;
     }
 
+    if (isScreenLoopEnabled() && deltaY > 42 && Math.abs(scrollTop - linksTop) < 36) {
+      jumpToLoopStart();
+      return;
+    }
+
+    if (isScreenLoopEnabled() && deltaY < -42 && Math.abs(scrollTop - historyTop) < 36 && !touchStartedInHistoryList) {
+      jumpToLoopEnd();
+      return;
+    }
+
     if (deltaY > 42 && Math.abs(scrollTop - historyTop) < 36 && !touchStartedInHistoryList) {
       jumpToHero();
     }
   }, { passive: true });
+
+  scrollRootElement.addEventListener("touchmove", (event) => {
+    if (isAnimating || isSettingsPreviewActive()) {
+      event.preventDefault();
+    }
+  }, { passive: false });
 
   scrollRootElement.addEventListener("scroll", () => {
     refresh();
     scheduleScrollSettle();
   }, { passive: true });
   window.addEventListener("resize", alignToHero);
+
+  const cancelPointerGesture = () => {
+    if (!pointerGesture) {
+      return;
+    }
+
+    resetGesturePreview(scrollRootElement, pointerGesture, refresh);
+    pointerGesture = null;
+    setSettingsDragState(false);
+    setScreenDragState(false);
+    requestLayoutRepair();
+  };
+
+  window.addEventListener("blur", cancelPointerGesture);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      cancelPointerGesture();
+    }
+  });
 
   document.addEventListener("pointerdown", (event) => {
     if (
@@ -398,6 +735,7 @@ export function initializeScrollScreens({
     };
 
     if (pointerGesture.startedFromSettingsPreview) {
+      setScreenDragState(false);
       setSettingsDragState(true);
       getPageShell()?.classList.add("is-settings-preview");
     }
@@ -450,6 +788,7 @@ export function initializeScrollScreens({
         deltaX < 0
       ) {
         pointerGesture.direction = "settings";
+        setScreenDragState(false);
         setSettingsDragState(true);
         pageShell?.classList.add("is-settings-preview");
       } else if (
@@ -457,12 +796,14 @@ export function initializeScrollScreens({
         absY > absX * POINTER_DIRECTION_DOMINANCE_RATIO
       ) {
         pointerGesture.direction = "vertical";
+        setScreenDragState(true);
       } else {
         return;
       }
     }
 
     if (pointerGesture.direction === "settings") {
+      setScreenDragState(false);
       if (isReducedMotionEnabled()) {
         return;
       }
@@ -473,8 +814,18 @@ export function initializeScrollScreens({
       return;
     }
 
-    const minScrollTop = historyScreenElement.offsetTop;
-    const maxScrollTop = linksScreenElement.offsetTop;
+    const screenTops = getScreenTops();
+    let minScrollTop = historyTop;
+    let maxScrollTop = linksTop;
+
+    if (isScreenLoopEnabled() && nearHistoryTop) {
+      minScrollTop = screenTops.topLoop;
+      maxScrollTop = heroTop;
+    } else if (isScreenLoopEnabled() && nearLinksTop) {
+      minScrollTop = heroTop;
+      maxScrollTop = screenTops.bottomLoop;
+    }
+
     if (isReducedMotionEnabled()) {
       pointerGesture.previewScrollTop = scrollRootElement.scrollTop;
       return;
@@ -531,11 +882,13 @@ export function initializeScrollScreens({
         document.documentElement.style.setProperty("--settings-progress", shouldOpenSettings ? "1" : "0");
         getPageShell()?.classList.toggle("is-settings-preview", shouldOpenSettings);
         setSettingsDragState(false);
+        setScreenDragState(false);
       } else if (pointerGesture.startedFromSettingsPreview) {
         const shouldStayOpen = deltaX < POINTER_SETTINGS_TRIGGER_DELTA;
         document.documentElement.style.setProperty("--settings-progress", shouldStayOpen ? "1" : "0");
         getPageShell()?.classList.toggle("is-settings-preview", shouldStayOpen);
         setSettingsDragState(false);
+        setScreenDragState(false);
       } else {
         const shouldConsiderSwitch = Math.abs(deltaY) >= POINTER_SWIPE_TRIGGER_DELTA;
         const nearestTop = getNearestScreenTop(releasedScrollTop, [historyTop, heroTop, linksTop]);
@@ -560,22 +913,42 @@ export function initializeScrollScreens({
             return heroTop;
           }
 
+          if (isScreenLoopEnabled() && nearLinksTop && pointerGesture.releaseVelocityY < 0) {
+            return historyTop;
+          }
+
+          if (isScreenLoopEnabled() && nearHistoryTop && pointerGesture.releaseVelocityY > 0) {
+            return linksTop;
+          }
+
           return scrollTop;
         })();
-        const finalTargetTop = flickTargetTop !== scrollTop ? flickTargetTop : nearestTop;
+        const loopDragTargetTop = (() => {
+          if (!isScreenLoopEnabled() || !shouldConsiderSwitch) {
+            return scrollTop;
+          }
 
-        if ((!shouldConsiderSwitch && !isFlickSwipe) || finalTargetTop === scrollTop) {
-          resetGesturePreview(scrollRootElement, pointerGesture, refresh);
-        } else if (nearHero && finalTargetTop === linksTop) {
-          jumpToLinks();
-        } else if (nearHero && finalTargetTop === historyTop) {
-          jumpToHistory();
-        } else if (nearLinksTop && finalTargetTop === heroTop) {
-          jumpToHero();
-        } else if (nearHistoryTop && finalTargetTop === heroTop) {
-          jumpToHero();
+          if (nearLinksTop && deltaY < -POINTER_SWIPE_TRIGGER_DELTA) {
+            return historyTop;
+          }
+
+          if (nearHistoryTop && deltaY > POINTER_SWIPE_TRIGGER_DELTA) {
+            return linksTop;
+          }
+
+          return scrollTop;
+        })();
+        const finalTargetTop = flickTargetTop !== scrollTop
+          ? flickTargetTop
+          : loopDragTargetTop !== scrollTop
+            ? loopDragTargetTop
+            : nearestTop;
+        const shouldSnapBack = (!shouldConsiderSwitch && !isFlickSwipe) || finalTargetTop === scrollTop;
+
+        if (shouldSnapBack) {
+          snapPointerReleaseTo(scrollTop);
         } else {
-          resetGesturePreview(scrollRootElement, pointerGesture, refresh);
+          snapPointerReleaseTo(finalTargetTop);
         }
       }
 
@@ -585,9 +958,7 @@ export function initializeScrollScreens({
 
   document.addEventListener("pointercancel", (event) => {
     if (pointerGesture?.pointerId === event.pointerId) {
-      resetGesturePreview(scrollRootElement, pointerGesture, refresh);
-      pointerGesture = null;
-      setSettingsDragState(false);
+      cancelPointerGesture();
     }
   });
 

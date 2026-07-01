@@ -22,7 +22,8 @@
     "unlimitedStorage",
     "tabs",
     "scripting",
-    "windows"
+    "windows",
+    "downloads"
   ],
   "commands": {
     "save-current-page": {

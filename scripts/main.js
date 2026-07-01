@@ -17,6 +17,7 @@ import { getQuickLinkOpenMode, setQuickLinkOpenMode } from "./modules/saved-link
 const WEATHER_ENABLED_STORAGE_KEY = "weatherWidgetEnabled";
 const REDUCED_MOTION_STORAGE_KEY = "reducedGlobalMotion";
 const FREQUENT_LINKS_VISIBLE_STORAGE_KEY = "frequentLinksVisible";
+const SCREEN_LOOP_ENABLED_STORAGE_KEY = "screenLoopEnabled";
 
 async function getWeatherEnabled() {
   const result = await chrome.storage.local.get(WEATHER_ENABLED_STORAGE_KEY);
@@ -40,6 +41,17 @@ async function setReducedMotionEnabled(enabled) {
   });
 }
 
+async function getScreenLoopEnabled() {
+  const result = await chrome.storage.local.get(SCREEN_LOOP_ENABLED_STORAGE_KEY);
+  return result[SCREEN_LOOP_ENABLED_STORAGE_KEY] !== false;
+}
+
+async function setScreenLoopEnabled(enabled) {
+  await chrome.storage.local.set({
+    [SCREEN_LOOP_ENABLED_STORAGE_KEY]: Boolean(enabled),
+  });
+}
+
 async function getFrequentLinksVisible() {
   const result = await chrome.storage.local.get(FREQUENT_LINKS_VISIBLE_STORAGE_KEY);
   return result[FREQUENT_LINKS_VISIBLE_STORAGE_KEY] !== false;
@@ -55,6 +67,31 @@ function applyReducedMotionState(enabled) {
   document.body.classList.toggle("is-reduced-motion", Boolean(enabled));
 }
 
+function applyScreenLoopState(enabled) {
+  const scrollRootElement = document.getElementById("scroll-root");
+  const pageShellElement = document.querySelector(".page-shell");
+  const wasHistoryView = pageShellElement?.classList.contains("is-history-view");
+  const wasLinksView = pageShellElement?.classList.contains("is-links-view");
+
+  document.body.classList.toggle("is-screen-loop-enabled", Boolean(enabled));
+
+  if (!scrollRootElement || document.body.classList.contains("is-page-booting")) {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    const targetElement = wasHistoryView
+      ? document.querySelector(".history-screen:not(.screen-loop-clone)")
+      : wasLinksView
+        ? document.querySelector(".links-screen:not(.screen-loop-clone)")
+        : document.querySelector(".hero-screen:not(.screen-loop-clone)");
+
+    if (targetElement) {
+      scrollRootElement.scrollTop = targetElement.offsetTop;
+    }
+  });
+}
+
 function applyStaticTranslations() {
   document.title = t("pageTitle");
   document.getElementById("settings-placeholder")?.setAttribute("aria-label", t("settingsTitle"));
@@ -63,9 +100,11 @@ function applyStaticTranslations() {
   document.getElementById("settings-tab-general").textContent = t("settingsSectionGeneral");
   document.getElementById("settings-tab-quick-links").textContent = t("settingsSectionQuickLinks");
   document.getElementById("settings-tab-background").textContent = t("settingsSectionBackground");
+  document.getElementById("settings-tab-extensions").textContent = t("settingsSectionExtensions");
   document.getElementById("settings-language-label").textContent = t("settingsLanguageLabel");
   document.getElementById("settings-weather-label").textContent = t("settingsWeatherLabel");
   document.getElementById("settings-reduced-motion-label").textContent = t("settingsReducedMotionLabel");
+  document.getElementById("settings-screen-loop-label").textContent = t("settingsScreenLoopLabel");
   document.getElementById("settings-frequent-links-visible-label").textContent = t("settingsFrequentLinksVisibleLabel");
   document.getElementById("settings-quick-links-open-mode-label").textContent = t("settingsQuickLinksOpenModeLabel");
   document.getElementById("settings-background-source-label").textContent = t("settingsBackgroundSourceLabel");
@@ -77,6 +116,7 @@ function applyStaticTranslations() {
   const backgroundSourceToggle = document.getElementById("background-source-toggle");
   const weatherToggle = document.getElementById("weather-toggle");
   const reducedMotionToggle = document.getElementById("reduced-motion-toggle");
+  const screenLoopToggle = document.getElementById("screen-loop-toggle");
   const clearBackgroundButton = document.getElementById("background-clear-button");
   if (quickLinksToggle) {
     quickLinksToggle.setAttribute("aria-label", t("settingsQuickLinksOpenModeAria"));
@@ -127,6 +167,17 @@ function applyStaticTranslations() {
   if (reducedMotionToggle) {
     const onButton = reducedMotionToggle.querySelector('[data-reduced-motion="true"]');
     const offButton = reducedMotionToggle.querySelector('[data-reduced-motion="false"]');
+    if (onButton) {
+      onButton.textContent = t("settingsOptionOn");
+    }
+    if (offButton) {
+      offButton.textContent = t("settingsOptionOff");
+    }
+  }
+  if (screenLoopToggle) {
+    screenLoopToggle.setAttribute("aria-label", t("settingsScreenLoopAria"));
+    const onButton = screenLoopToggle.querySelector('[data-screen-loop="true"]');
+    const offButton = screenLoopToggle.querySelector('[data-screen-loop="false"]');
     if (onButton) {
       onButton.textContent = t("settingsOptionOn");
     }
@@ -353,6 +404,48 @@ function initializeReducedMotionToggle() {
   };
 }
 
+function initializeScreenLoopToggle() {
+  const toggleElement = document.getElementById("screen-loop-toggle");
+
+  if (!toggleElement) {
+    return null;
+  }
+
+  const syncToggle = async () => {
+    const isEnabled = await getScreenLoopEnabled();
+    applyScreenLoopState(isEnabled);
+    toggleElement.querySelectorAll(".settings-language-option").forEach((buttonElement) => {
+      const buttonEnabled = buttonElement.dataset.screenLoop === "true";
+      const isActive = buttonEnabled === isEnabled;
+      buttonElement.classList.toggle("is-active", isActive);
+      buttonElement.setAttribute("aria-selected", String(isActive));
+    });
+  };
+
+  toggleElement.addEventListener("click", async (event) => {
+    const buttonElement = event.target instanceof Element
+      ? event.target.closest(".settings-language-option")
+      : null;
+
+    if (!buttonElement?.dataset.screenLoop) {
+      return;
+    }
+
+    const enabled = buttonElement.dataset.screenLoop === "true";
+    await setScreenLoopEnabled(enabled);
+    applyScreenLoopState(enabled);
+    await syncToggle();
+  });
+
+  subscribeLanguageChange(() => {
+    syncToggle();
+  });
+
+  return {
+    syncToggle,
+  };
+}
+
 function initializeQuickLinksOpenModeToggle() {
   const toggleElement = document.getElementById("quick-links-open-mode-toggle");
 
@@ -497,10 +590,12 @@ function initializeBackgroundSettings(backgroundControllerPromise) {
 async function bootstrap() {
   await initializeI18n();
   applyReducedMotionState(await getReducedMotionEnabled());
+  applyScreenLoopState(await getScreenLoopEnabled());
   applyStaticTranslations();
   initializeSettingsTabs();
   initializeLanguageToggle();
   const reducedMotionToggle = initializeReducedMotionToggle();
+  const screenLoopToggle = initializeScreenLoopToggle();
   const frequentLinksVisibleToggle = initializeFrequentLinksVisibleToggle();
   const quickLinksOpenModeToggle = initializeQuickLinksOpenModeToggle();
   let weatherController = null;
@@ -518,6 +613,7 @@ async function bootstrap() {
   }
   await weatherToggle?.syncToggle();
   await reducedMotionToggle?.syncToggle();
+  await screenLoopToggle?.syncToggle();
   await frequentLinksVisibleToggle?.syncToggle();
   await quickLinksOpenModeToggle?.syncToggle();
   initializeHistory({

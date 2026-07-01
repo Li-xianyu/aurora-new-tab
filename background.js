@@ -665,5 +665,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "SAVE_LINK_AS") {
+    (async () => {
+      const url = String(message.url || "").trim();
+
+      if (!isSavableUrl(url)) {
+        throw new Error("Only http and https links can be saved.");
+      }
+
+      const downloadId = await chrome.downloads.download({
+        url,
+        saveAs: true,
+      });
+
+      sendResponse({ ok: true, downloadId });
+    })().catch((error) => {
+      sendResponse({
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    return true;
+  }
+
   return false;
 });
